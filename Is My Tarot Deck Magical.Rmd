@@ -1,0 +1,631 @@
+---
+title: "Is My Tarot Deck Magical"
+author: "Trent Santonastaso PhD"
+date: "2022-08-01"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+---
+
+### Introduction
+Card decks are a textbook model to introduce students to probability theory (Noether, 1991). A standard deck of cards is familiar to most people, and several experiments can be readily and intuitively conducted both with and without replacement. Tarot decks are an augmentation of the standard deck with 14 cards in each suit, and the four suits collectively known as the minor arcana. A tarot deck has an additional 22 cards known as the major arcana bringing the total number of cards in most tarot decks to 78 (Waite, 1971).
+ 
+In the summer of 2021, while traveling in Alaska, I obtained a novel tarot deck created by a local artist: The Gentle Tarot (Aparicio-Tovar, 2020).  This deck innovates the standard tarot in several ways to reflect indigenous Alaskan wildlife: it changes two of the suits (Thunder replace Swords, and Stones replaces Pentacles), it changes the royal cards from Page, Knight, Queen, King to Seed, Root, Flower, Harvest, and it adds a 23rd card to the major arcana, "The Unseen" bringing this deck to a total of 79 cards.
+
+To engage in a practice of self-reflection, I drew one card a day for one year. In that time, I noticed that I was drawing the same cards multiple times in a row, or in a relatively short amount of time. I also noticed that I was getting a preponderance of the suits Stones and Thunder. My focus for the past couple of years has been towards a career change requiring me to learn several new skills. The interpretations of the correlative suits pentacles and swords reflect this focus in my life. This being the case, I asked the question: Is The Gentle Tarot magical?
+
+In this study, I analyzed my card draws for a year through a series of probability calculations to test the following specific hypotheses:
+Ho1 - All suits were selected as expected by random chance. If this is the case, probability mass functions would yield probabilities above 0.05.
+Ha1 - Some suits were selected at a higher rate than expected. If this is true I would calculate probability mass functions less than 0.05.
+Ho2 - The major arcana and minor arcana were selected in expected proportions. If this is true, the probability mass function calculated on each arcana would be greater than 0.05. 
+Ha2 - One of the arcanas was selected more often than expected. If this is true, the probability mass function calculated on the grouped arcanas would be less than 0.05. 
+Ho3 - No individual card was selected more than expected by random chance. If this is true, probability mass functions calculated on each card would be greater than 0.05.
+Ha3 - One or more individual cards were selected more often than expected. If this is true, some cards would have a probability mass function less than 0.05.
+Ho4 - All cards and suits are selected at a random rate at any time of the year. If this is true, a linear regression of cards selected against date would have a probability greater than 5%.
+Ha4 - Cards or suits are selected more often given the time of year. If this is true, a linear regression of cards selected against date would have a probability less than 5%.
+
+### METHODS
+
+##### Selection
+I drew a card every morning from August 2021 to August 2022, generally between 06:00 and 07:00. To mix the cards, I would cut-shuffle, and then bridge shuffle the deck a total of two times. I would then fan out the cards, select a card at random and cut the deck at that card. I would draw the card by grabbing it from the bottom and drawing the face towards me as I placed it face up on the table. During this process I would focus on a general question about the day such as: What will this day be like? or What is a primary factor to consider today regarding my career change?
+
+##### Calculations
+This was a question of probability with replacement, and drawing cards is a discrete random variable since I cannot draw some fraction of a card. In each trial, a card is either selected or it is not. The hypotheses ask the probability I drew some aspect of the deck an unusual number of times in an arbitrary number of trials (days). The trial space of these experiments therefore follows a binomial distribution (Edwards, 1960). Given these conditions, the appropriate calculation is the probability mass function (pmf) which gives the probability that a discrete random variable is exactly equal to some value (Stewart, 2011) and is eventually calculated by (Feller, 1968):
+
+
+###			n!k!(n-k)!pk(1 - p)n - k
+
+where:
+	n = total number of trials
+	k = number of successes
+	p = probability of success
+
+Calculating an arbitrarily varying set of days is impractical to conduct or report. While the Tableau dashboard provides this functionality for the user, for this study, I chose to calculate the pmfs of the aspects of the deck per month. This allows the number of trials for each calculation to be greater than 25 to maintain statistical robustness.
+
+To determine if there was a correlation between day of the year and the probability of drawing various aspects of the deck, a linear regression analysis was conducted. Days of the year were numbered from 1 to 365 and assigned as the predictor variable. The cards (response variable) were numbered from 1 to 79. The major arcana was assigned numbers 1 - 23, Cups were 24 - 37, Wands were 38 - 52, Thunder were 53 - 66, and Stones were 67 - 79.
+
+##### Data Handling
+Data were recorded in Microsoft Excel. All calculations and static figures were performed in RStudio. Dynamic data visualizations were constructed in Tableau Public.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Environment Setup
+
+Install necessary packages.
+
+```{r}
+#Set up our libraries
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(lubridate)
+library(DT)
+
+```
+
+```{r}
+#Establish path and import the spreadsheet
+setwd('C:/Users/tsant/Documents/Data Science/Tarot')
+
+#I wrap it in 'as.data.frame' otherwise it comes out as a tibble which isn't very friendly to manipulation
+df <- as.data.frame(read_excel("Tarot_Draws.xlsx", sheet = "df"))
+
+#Convert calendar date to day # of the year
+df$Day_No <- lubridate::yday(df$Date)
+#(Now I can do multiple regression)
+```
+
+## Data Prep
+Separate the Date column into three separate columns: 'Month", 'Day', 'Year'
+
+```{r}
+
+df <- df %>%
+          mutate(Date = as.Date(Date), 
+              date = day(Date), month = month(Date), year = year(Date))
+```
+
+Change month designation from number to name.
+
+```{r}
+df$month <- month.name[df$month]
+```
+
+
+#### Construct lookup and iterative lists:
+
+```{r}
+Month <- c("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+months <- c(rep(Month, each = 4))
+Suits <- c("Cups", "Wands", "Thunder", "Stones", "Major Arcana")
+suits <- c(rep(Suits, 12))
+```
+
+Data probing/exploration.
+
+```{r}
+str(df)
+```
+
+To calculate the probability mass function, I used the following equation:
+
+(factorial(n)/((factorial(k)\*(factorial(n-k)))))\*((p^k)*(1-p)^(n-k))
+
+where:
+
+k = number of times each suit was selected in a month
+n = number of draws in that month
+p = 14/79 - probability of suit if minor arcana
+p = 23/79 - probability of suit if major arcana
+p = 1/79 - probability of any given card
+
+
+
+#### Calculate the number of times each Suit and Card was selected in each month
+
+```{r}
+#Creates a dataframe consolidated by Suits per Month
+GroupedMonthSuits <- df %>% group_by(df$month, df$Suit) %>% tally()  
+
+#Creates a dataframe consolidated by Months
+GroupedMonths <- df %>% group_by(df$month) %>% tally()
+
+#Creates a dataframe consolidated by Cards
+GroupedCards <- df %>% group_by(df$month, df$Card) %>% tally()
+
+#Creates a dataframe consolidated by Suits
+GroupedSuits <- df %>% group_by(df$Suit) %>% tally()
+```
+
+
+#### Rename grouped data columns from, for example, "df$Month", to "Months"
+
+
+```{r}
+
+#Rename columns in each grouped dataframe
+df3 <- as.data.frame(rename(GroupedMonths, "Months" = "df$month"))
+
+df4 <- as.data.frame(rename(GroupedMonthSuits, "Months" = "df$month"))
+df4 <- rename(df4, "Suit" = "df$Suit")
+
+df5 <- as.data.frame(rename(GroupedCards, "Card" = "df$Card"))
+df5 <- rename(df5, "Months" = "df$month")
+
+df6 <- as.data.frame(rename(GroupedSuits, "Suit" = "df$Suit"))
+
+
+```
+
+#### Organize basic statistics into a table.
+
+```{r}
+#Create new row
+#First make a list
+new <- c("Minor Arcana", (sum(df6$"n") - df6[2,2]))
+#Slap it on
+rbind(df6, new)
+di <- c("Distinct", n_distinct(df$Card_Number))
+rbind(df6, di)
+tot <- c("Total Draws", sum(df6$n))
+rbind(df6, tot)
+#order the rows the only way I know how
+df6a <- data.frame(df6[1,])
+df6a <- rbind(df6a, df6[5,])
+df6a <- rbind(df6a, df6[4,])
+df6a <- rbind(df6a, df6[3,])
+df6a <- rbind(df6a, new)
+df6a <- rbind(df6a, df6[2,])
+df6a <- rbind(df6a, di)
+df6a <- rbind(df6a, tot)
+#Change column 1 to row names
+rownames(df6a) <- df6a$Suit
+#Remove column 1
+df6a <- subset(df6a, select = -c(Suit))
+#Change column name
+colnames(df6a)[colnames(df6a) == "n"] <- "Number"
+
+#View table
+View(df6a)
+```
+
+#### Order the data by month order
+
+```{r}
+df3$month_number <- match(df3$Months, month.name)
+df3 <- as.data.frame(df3[order(df3$month_number),])
+
+df4$month_number <- match(df4$Month, month.name)
+df4 <- as.data.frame(df4[order(df4$month_number),])
+
+df5$month_number <- match(df5$Month, month.name)
+df5 <- as.data.frame(df5[order(df5$month_number),])
+
+```
+
+#### That ends data prep.
+
+The following is the pmf calculation for suits per month.
+
+## Probability Calculations
+
+#### Probability Mass Function for Suits per Month
+
+```{r}
+
+# Instantiate output lists
+Output_Months <- c()          
+Output_Suits <- c()
+Output_Prob <- c()
+
+#Iterate through the months from the 'Month' list
+for(iterated_month in Month){
+
+#Sequentially check if each month is in the grouped by Suit dataframe  
+	  if(iterated_month %in% df4$Months){
+	      #print(paste("Iterated Month:", iterated_month)) - Used to troubleshoot
+
+#If the grouped suit dataframe has the month, we can assign the variable n by looking up the total number of draws in that month	
+		    n <- with(df3, n[Months == iterated_month])
+
+#Sequentially check if each suit is in the dataframe grouped by suits.		
+		    for(iterated_suit in Suits){
+
+#If the grouped suit dataframe has the suit...		
+			      if(iterated_suit %in% df4$Suit){
+			          #print(paste("Iterated Suit:", iterated_suit)) - Used to troubleshoot
+
+#Check if the suit is Major or Minor arcana, and assign the probabilities appropriately			        			
+				        if(iterated_suit == "Major Arcana"){
+					          p <- 23/79
+				        }else{
+					          p <- 14/79
+				        }
+			        
+#...and assign k as the number of 'successes', or the number of times each suit was drawn in each month
+				        k <- with(df4, n[Months == iterated_month & Suit == iterated_suit])
+				        
+#Check if there is a k. If not, we want to record in our list the fact that for that month and suit, there were no draws ('NA')				        
+				        if(length(k) == 0){
+				            Output_Months <- append(Output_Months, iterated_month)
+				            Output_Suits <- append(Output_Suits, iterated_suit)
+				            Output_Prob <- append(Output_Prob, "NA")
+				            
+#If there is a k, we can calculate the pmf:				            
+				        }else{
+				            pmf <- (factorial(n)/((factorial(k)*(factorial(n-k)))))*((p^k)*(1-p)^(n-k))
+				            #print(paste("n = ", n))    - Used for trouble shooting
+				            #print(paste("p = ", p))    - Used for trouble shooting
+				            #print(paste("k = ", k))    - Used for trouble shooting
+				            #print(paste("pmf =", pmf)) - Used for trouble shooting
+				
+#Append our month, suit and probability, each to their own list. These lists will be used to build a dataframe.      
+				            Output_Months <- append(Output_Months, iterated_month)
+				            Output_Suits <- append(Output_Suits, iterated_suit)
+				            Output_Prob <- append(Output_Prob, pmf)
+				        }
+
+#If the suit is not in the grouped suits dataframe, we will indicate that in the output (pmf = "NA")			
+			       }else{
+				        Output_Months <- append(Output_Months, iterated_month)
+				        Output_Suits <- append(Output_Suits, iterated_suit)
+				        Output_Prob <- append(Output_Prob, "NA")
+			       }
+		    }
+
+#If the month is not in the grouped by suit dataframe, we will record that with 'NAs' as well		
+	  }else{
+	    
+	      for(iterated_suit in Suits){
+	        
+	          Output_Months <- append(Output_Months, iterated_month)
+		        Output_Suits <- append(Output_Suits, "NA")
+		        Output_Prob <- append(Output_Prob, "NA")
+	      }
+	
+	  }
+	
+}
+
+#We will construct a dataframe and export it for Tableau. We'll also use this dataframe to construct graphs in R
+Monthly_Odds <- data.frame("Month" = Output_Months, "Suit" = Output_Suits, "Probability" = Output_Prob)
+
+write.csv(Monthly_Odds,"C:/Users/tsant/Documents/Data Science/Tarot/Monthly_Odds.csv", row.names = FALSE)
+
+#Count the total number, and number of probabilities < 0.05:
+Total_pmf_suitmonth <- length(Output_Prob)
+print(paste("The total number of pmfs calculated for suits in each month is ", Total_pmf_suitmonth))
+
+Total_sigpmf_suitmonth <- length(which(Output_Prob < 0.05))
+print(paste("The number of significant pmfs calculated for suits in each month is ", Total_sigpmf_suitmonth))
+
+print(paste("The percentage of significant pmfs for suits in each month is ", (Total_sigpmf_suitmonth/Total_pmf_suitmonth)*100))
+```
+
+
+#### Probability Mass Function for cards for each month
+
+```{r}
+#Set up our output lists:
+Output_Card_Month <- c()
+Output_Card_Prob <- c()
+Output_Card <- c()
+Card_Prob <- c()
+
+#Iterate through the Months column. Seq_along will provide index number to retrieve records from from the table later.
+for(i in seq_along(df5$Months)){
+
+#Assign values to each variable.
+#n is the total number of draws that month (found in GroupedMonth (df3))
+    n <- df3[df3$Months == df5$Months[i], "n"]
+		k <- df5$n[i]
+		p <- 1/79
+		pmf <- (factorial(n)/((factorial(k)*(factorial(n-k)))))*((p^k)*(1-p)^(n-k))
+
+		#print(paste("n = ", n))  - Used for troubleshooting
+		#print(paste("k = ", k))  - Used for troubleshooting
+
+#For each card, we need the month it was selected, and the number of times.
+#Output_Card_Month gets the month it was selected by getting the data from the Months column at the index for the current iteration
+		Output_Card_Month <- append(Output_Card_Month, df5$Months[i])
+		#print(paste("Month = ", df5$Months[i])) - Used for troubleshooting
+
+#Build probability list		
+		Card_Prob <- append(Card_Prob, pmf)
+		
+#Record card we're analyzing by selecting from the Card column at the current iteration
+		Output_Card <- append(Output_Card, df5$Card[i])
+		
+		
+}
+
+#Build the output dataframe
+Output_Card_Prob <- data.frame("Month" = Output_Card_Month, "Card" = Output_Card, "Prob" = Card_Prob)
+		
+#Save the results
+write.csv(Output_Card_Prob,"C:/Users/tsant/Documents/Data Science/Tarot/Output_Card_Prob.csv", row.names = FALSE)
+
+#Count the total number, and number of probabilities < 0.05:
+Total_pmf_cardmonth <- length(Card_Prob)
+print(paste("The total number of pmfs calculated for cards in each month is ", Total_pmf_cardmonth))
+
+Total_sigpmf_cardmonth <- length(which(Card_Prob < 0.05))
+print(paste("The number of significant pmfs calculated for cards in each month is ", Total_sigpmf_cardmonth))
+
+print(paste("The percentage of significant pmfs for cards in each month is ", (Total_sigpmf_cardmonth/Total_pmf_cardmonth)*100))
+
+```
+
+
+
+## Linear regression comparing day of the year with number of card drawn.
+
+```{r}
+# Linear regression
+relation <- lm(df$Card_Number ~ df$Day_No)
+# Gotta put the summary in a variable to retrieve the r2 and p-value
+relation_summary <- summary(relation)
+r2 <- relation_summary$adj.r.squared
+pval <- relation_summary$coefficients[2,4]
+
+#Results
+print(relation)
+print(summary(relation))
+
+#Graph regression. First 2 commands are prep
+group <- factor(df$Suit)
+my_cols <- c("#153700", "#aa7356","#a11069","#1f7847","#764e9f")
+
+#Plot with base R. Included are custom colors, labels, abline, legend
+plot(df$Day_No, df$Card_Number, pch=16, col = my_cols[group], main = "Card Number per Calendar Day linear regression", 
+#abline
+abline(lm(df$Card_Number~df$Day_No)), xlab = "Day", ylab = "Card", )
+#legend
+legend("bottomright", legend = c("Cups","Major Arcana", "Stones","Thunder" ,"Wands" ), col = my_cols)
+#r2
+#rlab <- bquote(italic(R)^2 == .(format(r2, digits = 3)))
+rp = vector('expression',2)
+rp[1] = substitute(expression(italic(R)^2 == MYVALUE),
+                   list(MYVALUE = format(r2,dig=3)))[2]
+rp[2] = substitute(expression(italic(p) == MYOTHERVALUE),
+                   list(MYOTHERVALUE = format(pval, digits = 2)))[2]
+legend('topright', legend = rp,  bg = "white")
+
+```
+#### Linear regressions for each month:
+
+```{r}
+#Here, I do the regressions as I build each scatterplot:
+#Set up matrix
+par(mfrow = c(4, 3))
+
+#This will give me one plot per panel.
+layout(matrix(c(1,1,1,2,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10,11,11,11,12,12,12), nrow = 1, ncol = 1, byrow = TRUE))
+
+#For each regression, conduct the model, make the plot, add the abline
+Januarylm <- subset(df, month == "January")
+JanuarylmResults <- lm(Januarylm$Day_No ~ Januarylm$Card_Number)
+summary(JanuarylmResults)
+plot(Januarylm$Day_No, Januarylm$Card_Number, main = "Card Numbers in January",
+abline(lm(Januarylm$Card_Number ~ Januarylm$Day_No)), xlab = "January", ylab = "Card")
+
+Februarylm <- subset(df, month == "February")
+FebruarylmResults <- lm(Februarylm$Day_No ~ Februarylm$Card_Number)
+summary(FebruarylmResults)
+plot(Februarylm$Day_No, Februarylm$Card_Number, main = "Card Numbers in February",
+abline(lm(Februarylm$Card_Number ~ Februarylm$Day_No)), xlab = "February", ylab = "Card")
+
+Marchlm <- subset(df, month == "March")
+MarchlmResults <- lm(Marchlm$Day_No ~ Marchlm$Card_Number)
+summary(MarchlmResults)
+plot(Marchlm$Day_No, Marchlm$Card_Number, main = "Card Numbers in March",
+abline(lm(Marchlm$Card_Number ~ Marchlm$Day_No)), xlab = "March", ylab = "Card")
+
+
+Aprillm <- subset(df, month == "April")
+AprillmResults <- lm(Aprillm$Day_No ~ Aprillm$Card_Number)
+summary(FebruarylmResults)
+plot(Aprillm$Day_No, Aprillm$Card_Number, main = "Card Numbers in April",
+abline(lm(Aprillm$Card_Number ~ Aprillm$Day_No)), xlab = "April", ylab = "Card")
+
+Maylm <- subset(df, month == "May")
+MaylmResults <- lm(Maylm$Day_No ~ Maylm$Card_Number)
+summary  (MaylmResults)
+plot     (Maylm$Day_No, Maylm$Card_Number, main = "Card Numbers in May",
+abline(lm(Maylm$Card_Number ~Maylm$Day_No)), xlab = "May", ylab = "Card")
+
+Junelm <- subset(df, month == "June")
+JunelmResults <- lm(Junelm$Day_No ~ Junelm$Card_Number)
+summary  (JunelmResults)
+plot     (Junelm$Day_No, Junelm$Card_Number, main = "Card Numbers in June",
+abline(lm(Junelm$Card_Number ~Junelm$Day_No)), xlab = "June", ylab = "Card")
+
+Julylm <- subset(df, month == "July")
+JulylmResults <- lm(Julylm$Day_No ~ Julylm$Card_Number)
+summary  (JulylmResults)
+plot     (Julylm$Day_No, Julylm$Card_Number, main = "Card Numbers in July",
+abline(lm(Julylm$Card_Number ~Julylm$Day_No)), xlab = "July", ylab = "Card")
+
+Augustlm <- subset(df, month == "August")
+AugustlmResults <- lm(Augustlm$Day_No ~ Augustlm$Card_Number)
+summary  (AugustlmResults)
+plot     (Augustlm$Day_No, Augustlm$Card_Number, main = "Card Numbers in August",
+abline(lm(Augustlm$Card_Number ~Augustlm$Day_No)), xlab = "August", ylab = "Card")
+
+Septemberlm <- subset(df, month == "September")
+SeptemberlmResults <- lm(Septemberlm$Day_No ~ Septemberlm$Card_Number)
+summary  (SeptemberlmResults)
+plot     (Septemberlm$Day_No, Septemberlm$Card_Number, main = "Card Numbers in September",
+abline(lm(Septemberlm$Card_Number ~Septemberlm$Day_No)), xlab = "September", ylab = "Card")
+
+Octoberlm <- subset(df, month == "October")
+OctoberlmResults <- lm(Octoberlm$Day_No ~ Octoberlm$Card_Number)
+summary  (OctoberlmResults)
+plot     (Octoberlm$Day_No, Octoberlm$Card_Number, main = "Card Numbers in October",
+abline(lm(Octoberlm$Card_Number ~Octoberlm$Day_No)), xlab = "October", ylab = "Card")
+
+Novemberlm <- subset(df, month == "November")
+NovemberlmResults <- lm(Novemberlm$Day_No ~ Novemberlm$Card_Number)
+summary  (NovemberlmResults)
+plot     (Novemberlm$Day_No, Novemberlm$Card_Number, main = "Card Numbers in November",
+abline(lm(Novemberlm$Card_Number ~Novemberlm$Day_No)), xlab = "November", ylab = "Card")
+
+Decemberlm <- subset(df, month == "December")
+DecemberlmResults <- lm(Decemberlm$Day_No ~ Decemberlm$Card_Number)
+summary  (DecemberlmResults)
+plot     (Decemberlm$Day_No, Decemberlm$Card_Number, main = "Card Numbers in December",
+abline(lm(Decemberlm$Card_Number ~Decemberlm$Day_No)), xlab = "December", ylab = "Card")
+```
+
+
+
+## Results
+Over the course of the year a total of 300 single card draws were conducted. Of 79 possible cards, 78 were drawn at least once. There were 38 Cups drawn, 58 Wands, 70 Thunder, 60 Stones, 226 Minor Arcana, and 74 Major Arcana (Table 1). The six most commonly drawn cards were the Nine of Stones (10), Two of Wands (8), Five of Thunder (7), Judgement (7), Nine of Thunder (7), and Two of Stones (7) representing 15% of the total draws. Ten cards were drawn only once.
+
+There were 120 pmf calculations for the amount of suits in each month. Of these, 8 were significant, or 6.67%. There were 258 pmf calculations for the number of cards in each month. Of these, 39 were significant, or 15%.
+
+The linear regression suggested that the card drawn was correlated with the day of the year (lm, n = 300, p = 0.009; Figure 1). When analyzed per month however, there were no individual months that reported a statistically significant  correlation.	
+
+
+
+## DISCUSSION
+
+The first tarot decks can be traced to Italy in the 1430s (Parlett, 2009). Ever since, tarot has been used in the occult, mysticism, spirituality, psychology, and parlor games. As tarot piques our collective imagination, there continues to be controversy around any mystical power it may or may not have to predict events, or provide knowledge that has otherwise been unobtainable to the querent (Sosteric, 2014). Here, I have conducted a thorough statistical analysis of 300 card draws taken over the course of a year. During this time, 378 independent trials were conducted with 47 of them being statistically improbable (p < 0.05). A p-value of 0.05 tells us that the experiment conducted will have those results at random, 5% of the time. By scientific convention, this is accepted as being unlikely enough to reject the null hypothesis that the treatment was random. By that reasoning, with enough trials, we would expect a p-value < 0.05 to occur approximately 5% of the time. My 47 significantly improbable draws represent a total of 12.4% of my trials, which is more than double the expected 5%. I must therefore reject my null hypothesis that my card draws occurred randomly and conclude that The Gentle Tarot, in my hands at least, is indeed magical.
+
+
+
+
+
+## Appendix
+
+I kept this code here for reference. The equations are right, but 300! is too high (INF). Until I can find a mathematical work-around, I won't be able to report on total probabilities.
+
+## Calculate Overall Probabilities
+
+#### Probability Mass Function for each suit overall
+
+```{r}
+#Group dataset by total suits
+GroupedSuitTotal <- df %>% group_by(df$Suit) %>% tally()
+
+GroupedSuitTotal <- as.data.frame(rename(GroupedSuitTotal, "Suit" = "df$Suit"))
+
+#Instantiate results vectors
+Suits_Out <- c()
+SuitProbOut <- c()
+
+#Total number of attempts is the number of draws, or the number of entries in the dataframe
+n <- length(df$Deck)
+
+#Iterate through the suit lookup list
+for(iterated_suit in Suits){
+    #print(iterated_suit)
+#Assign the appropriate probabilities for each suit  
+    if(iterated_suit == "Major Arcana"){
+        p <- 23/79
+    }else{
+        p <- 14/79
+    }    
+
+#Assign k, which is the number of successes, or the number of times each suit was drawn            
+    k <- with(GroupedSuitTotal, n[Suit == iterated_suit])
+    print(iterated_suit)
+    #print(k)
+
+#Calculate pmf
+    pmf <- (factorial(n+1)/((factorial(k)*(factorial((n-k)+1)))))*((p^k)*(1-p)^(n-k))    
+    print(pmf)
+    print(n)
+    print(k)
+    print(p)
+#Build the output vectors    
+    Suits_Out <- append(Suits_Out, iterated_suit)
+    SuitProbOut <- append(SuitProbOut, pmf)
+    
+}
+
+#Build and export my dataframe:
+Total_Suit_Probs <- data.frame("Suits" = Suits_Out, "Probabilities" = SuitProbOut)
+
+write.csv(Total_Suit_Probs, "C:/Users/tsant/Documents/Data Science/Tarot/Total_Suit_Probs.csv", row.names = FALSE)
+
+
+
+
+```
+
+
+#### Probability Mass Function for each arcana overall
+
+```{r}
+#Group the dataframe by arcana only.
+GroupedArcana <- df %>% group_by(df$Arcana) %>% tally()
+
+GroupedArcana <- as.data.frame(rename(GroupedArcana, "Arcana" = "df$Arcana"))
+
+Arcana_Names <- c()
+Arcana_Probs <- c()
+
+#Assign n: total number of trials
+n <- length(df$Deck == "Gentle Tarot")
+
+#Iterate through the Arcana
+for(i in GroupedArcana$Arcana){
+    
+#Check if the suit is Major or Minor arcana, and assign the probabilities appropriately			        			
+    if(i == "Major"){
+		    p <- 23/79
+		}else{
+		    p <- (79-23)/79
+		}
+
+#Assign k, the total number of successes (the number of times each suit was selected)      
+    k <- with(GroupedArcana, n[Arcana == i]) 
+    
+#Calculate the probability:
+    pmf <- (factorial(n)/((factorial(k)*(factorial(n-k)))))*((p^k)*(1-p)^(n-k))
+    
+  
+    Arcana_Names <- append(Arcana_Names, i)
+    Arcana_Probs <- append(Arcana_Probs, pmf)
+}
+
+TotalArcanaProbs <- data.frame("Arcana" = Arcana_Names, "Probabilities" = Arcana_Probs)
+
+write.csv(TotalArcanaProbs, "C:/Users/tsant/Documents/Data Science/Tarot/TotalArcanaProbs.csv", row.names = FALSE)
+```
+
+#### Probability Mass Function for each card overall
+
+```{r}
+#Group the dataframe by card
+GroupedCardTotal <- df %>% group_by(df$Card) %>% tally()
+
+GroupedCardTotal <- as.data.frame(rename(GroupedCardTotal, "Card" = "df$Card"))
+
+Card_Names <- c()
+Card_Probs <- c()
+
+#Assign n: total number of trials
+n <- length(df$Deck == "Gentle Tarot")
+p <- 1/79
+
+#Iterate through the cards
+for(i in GroupedCardTotal$Card){
+  
+    k <- with(GroupedCardTotal, n[Card == i])
+    
+    pmf <- (factorial(n)/((factorial(k)*(factorial(n-k)))))*((p^k)*(1-p)^(n-k))
+    
+    Card_Names <- append(Card_Names, i)
+    Card_Probs <- append(Card_Probs, pmf)
+}
+
+Total_Card_Probs <- data.frame("Card" = Card_Names, "Probabilities" = Card_Probs)
+
+write.csv(Total_Card_Probs, "C:/Users/tsant/Documents/Data Science/Tarot/Total_Card_Probs.csv", row.names = FALSE)
+```
